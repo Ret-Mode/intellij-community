@@ -11,6 +11,7 @@ import com.intellij.openapi.ui.popup.LightweightWindowEvent
 import com.intellij.ui.UIBundle
 import com.intellij.ui.awt.RelativePoint
 import com.intellij.util.Alarm
+import icons.FeaturesTrainerIcons
 import training.dsl.LearningBalloonConfig
 import training.dsl.TaskContext
 import training.dsl.TaskRuntimeContext
@@ -61,7 +62,7 @@ internal object LessonExecutorUtil {
     balloonPanel.isOpaque = false
     balloonPanel.layout = BoxLayout(balloonPanel, BoxLayout.Y_AXIS)
     var height = preferredSize.height + 16
-    val width = (if (balloonConfig.width != 0) balloonConfig.width else (preferredSize.width + 2)) + 16
+    val width = (if (balloonConfig.width != 0) balloonConfig.width else (preferredSize.width + 6)) + 16
     balloonPanel.add(messagesPane)
     val gotItCallBack = balloonConfig.gotItCallBack
     val gotItButton = if (gotItCallBack != null) JButton().also {
@@ -99,9 +100,11 @@ internal object LessonExecutorUtil {
         val checkStopLesson = {
           invokeLater {
             if (actionsRecorder.disposed) return@invokeLater
-            val yesNo = Messages.showYesNoDialog(project, LearnBundle.message("learn.stop.lesson.question"), LearnBundle.message("learn.stop.lesson"), null)
+            val yesNo = Messages.showYesNoDialog(project, LearnBundle.message("learn.stop.lesson.question"), LearnBundle.message("learn.stop.lesson"), FeaturesTrainerIcons.Img.PluginIcon)
             if (yesNo == Messages.YES) {
-              LessonManager.instance.stopLesson()
+              invokeLater {
+                LessonManager.instance.stopLesson()
+              }
             }
             else {
               if (actionsRecorder.disposed) return@invokeLater

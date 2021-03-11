@@ -2,7 +2,10 @@
 package org.editorconfig.configmanagement.extended;
 
 import com.intellij.application.options.CodeStyle;
-import com.intellij.application.options.codeStyle.properties.*;
+import com.intellij.application.options.codeStyle.properties.AbstractCodeStylePropertyMapper;
+import com.intellij.application.options.codeStyle.properties.CodeStylePropertiesUtil;
+import com.intellij.application.options.codeStyle.properties.CodeStylePropertyAccessor;
+import com.intellij.application.options.codeStyle.properties.GeneralCodeStylePropertyMapper;
 import com.intellij.lang.Language;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ex.ApplicationUtil;
@@ -165,12 +168,6 @@ public class EditorConfigCodeStyleSettingsModifier implements CodeStyleSettingsM
           }
         }
         isModified |= accessor.setFromString(val);
-        if (accessor instanceof CodeStyleFieldAccessor) {
-          Object dataObject = ((CodeStyleFieldAccessor<?,?>)accessor).getDataObject();
-          if (dataObject instanceof CommonCodeStyleSettings.IndentOptions) {
-            ((CommonCodeStyleSettings.IndentOptions)dataObject).setOverrideLanguageOptions(true);
-          }
-        }
         processed.add(intellijName);
       }
     }
@@ -199,7 +196,8 @@ public class EditorConfigCodeStyleSettingsModifier implements CodeStyleSettingsM
       if (propertyName.startsWith(langPrefix)) {
         final String prefixlessName = StringUtil.trimStart(propertyName, langPrefix);
         final EditorConfigPropertyKind propertyKind = IntellijPropertyKindMap.getPropertyKind(prefixlessName);
-        if (propertyKind == EditorConfigPropertyKind.LANGUAGE || propertyKind == EditorConfigPropertyKind.COMMON) {
+        if (propertyKind == EditorConfigPropertyKind.LANGUAGE || propertyKind == EditorConfigPropertyKind.COMMON ||
+            EditorConfigIntellijNameUtil.isIndentProperty(prefixlessName)) {
           return mapper.getAccessor(prefixlessName);
         }
       }
@@ -295,9 +293,7 @@ public class EditorConfigCodeStyleSettingsModifier implements CodeStyleSettingsM
     for (LanguageCodeStyleSettingsProvider provider : getLanguageCodeStyleProviders(context)) {
       mappers.add(provider.getPropertyMapper(context.getSettings()));
     }
-    if (mappers.isEmpty()) {
-      mappers.add(new GeneralCodeStylePropertyMapper(context.getSettings()));
-    }
+    mappers.add(new GeneralCodeStylePropertyMapper(context.getSettings()));
     return mappers;
   }
 
@@ -327,11 +323,16 @@ public class EditorConfigCodeStyleSettingsModifier implements CodeStyleSettingsM
   private static Collection<String> getLanguageIds(@NotNull MyContext context) {
     Set<String> langIds = new HashSet<>();
     for (OutPair option : context.getOptions()) {
-      String langId = EditorConfigIntellijNameUtil.extractLanguageDomainId(option.getKey());
+      String key = option.getKey();
+      if (EditorConfigIntellijNameUtil.isIndentProperty(key)) {
+        langIds.add("any");
+      }
+      String langId = EditorConfigIntellijNameUtil.extractLanguageDomainId(key);
       if (langId != null) {
         langIds.add(langId);
       }
     }
     return langIds;
   }
+
 }

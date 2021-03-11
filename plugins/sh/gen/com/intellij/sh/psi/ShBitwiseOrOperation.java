@@ -1,10 +1,13 @@
 // This is a generated file. Not intended for manual editing.
-package com.intellij.jsonpath.psi;
+package com.intellij.sh.psi;
 
 import java.util.List;
 import org.jetbrains.annotations.*;
 import com.intellij.psi.PsiElement;
 
-public interface JsonPathSpliceExpression extends PsiElement {
+public interface ShBitwiseOrOperation extends ShBinaryOperation {
+
+  @NotNull
+  PsiElement getPipe();
 
 }

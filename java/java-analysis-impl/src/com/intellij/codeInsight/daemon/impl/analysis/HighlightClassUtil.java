@@ -14,7 +14,6 @@ import com.intellij.codeInsight.daemon.impl.HighlightInfo;
 import com.intellij.codeInsight.daemon.impl.HighlightInfoType;
 import com.intellij.codeInsight.daemon.impl.quickfix.QuickFixAction;
 import com.intellij.codeInsight.intention.IntentionAction;
-import com.intellij.codeInsight.intention.PriorityAction.Priority;
 import com.intellij.codeInsight.intention.QuickFixFactory;
 import com.intellij.ide.highlighter.JavaFileType;
 import com.intellij.java.analysis.JavaAnalysisBundle;
@@ -627,7 +626,7 @@ public final class HighlightClassUtil {
         .descriptionAndTooltip(JavaErrorBundle.message("ambiguous.method.call", m1, m2))
         .create();
 
-      QuickFixAction.registerQuickFixAction(info,QUICK_FIX_FACTORY.createCreateConstructorMatchingSuperFix(aClass, Priority.TOP));
+      QuickFixAction.registerQuickFixAction(info,QUICK_FIX_FACTORY.createCreateConstructorMatchingSuperFix(aClass));
       QuickFixAction.registerQuickFixAction(info, QUICK_FIX_FACTORY.createAddDefaultConstructorFix(baseClass));
       return info;
     }
@@ -1156,7 +1155,7 @@ public final class HighlightClassUtil {
         @Nullable PsiElement resolve = permitted.resolve();
         if (resolve instanceof PsiClass) {
           PsiClass inheritorClass = (PsiClass)resolve;
-          if (Arrays.stream(inheritorClass.getSuperTypes()).noneMatch(type -> aClass.equals(type.resolve()))) {
+          if (!ContainerUtil.exists(inheritorClass.getSuperTypes(), type -> aClass.equals(type.resolve()))) {
             HighlightInfo info = HighlightInfo.newHighlightInfo(HighlightInfoType.ERROR).range(permitted)
               .descriptionAndTooltip(JavaErrorBundle.message("invalid.permits.clause.direct.implementation",
                                                              inheritorClass.getName(),

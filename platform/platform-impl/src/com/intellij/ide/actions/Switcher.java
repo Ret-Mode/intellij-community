@@ -112,7 +112,6 @@ public final class Switcher extends BaseSwitcherAction {
     final boolean recent; // false - Switcher, true - Recent files / Recently changed files
     final boolean pinned; // false - auto closeable on modifier key release, true - default popup
     final SwitcherKeyReleaseListener onKeyRelease;
-    final Alarm myAlarm;
     final SwitcherSpeedSearch mySpeedSearch;
     final String myTitle;
     private JBPopup myHint;
@@ -421,7 +420,6 @@ public final class Switcher extends BaseSwitcherAction {
       if (window == null) {
         window = WindowManager.getInstance().getFrame(project);
       }
-      myAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD, myPopup);
       IdeEventQueue.getInstance().getPopupManager().closeAllPopups(false);
 
       SwitcherPanel old = project.getUserData(SWITCHER_KEY);
@@ -676,7 +674,7 @@ public final class Switcher extends BaseSwitcherAction {
           final FileInfo info = (FileInfo)value;
           final VirtualFile virtualFile = info.first;
           final FileEditorManagerImpl editorManager = (FileEditorManagerImpl)FileEditorManager.getInstance(project);
-          final JList jList = getSelectedList();
+          final JList<?> jList = getSelectedList();
           final EditorWindow wnd = findAppropriateWindow(info);
           if (wnd == null) {
             editorManager.closeFile(virtualFile, false, false);
@@ -684,26 +682,7 @@ public final class Switcher extends BaseSwitcherAction {
           else {
             editorManager.closeFile(virtualFile, wnd, false);
           }
-
-          final IdeFocusManager focusManager = IdeFocusManager.getInstance(project);
-          myAlarm.cancelAllRequests();
-          myAlarm.addRequest(() -> {
-            JComponent focusTarget = selectedList;
-            if (selectedList.getModel().getSize() == 0) {
-              focusTarget = selectedList == files ? toolWindows : files;
-            }
-            focusManager.requestFocus(focusTarget, true);
-          }, 300);
-          if (jList.getModel().getSize() == 1) {
-            removeElementAt(jList, selectedIndex);
-            this.remove(jList);
-            final Dimension size = toolWindows.getSize();
-            myPopup.setSize(new Dimension(size.width, myPopup.getSize().height));
-          }
-          else {
-            removeElementAt(jList, selectedIndex);
-            jList.setSize(jList.getPreferredSize());
-          }
+          ListUtil.removeItem(jList.getModel(), selectedIndex);
           if (recent) {
             EditorHistoryManager.getInstance(project).removeFile(virtualFile);
           }
@@ -713,29 +692,15 @@ public final class Switcher extends BaseSwitcherAction {
           item.close(this);
         }
       }
-      pack();
-      myPopup.getContent().revalidate();
-      myPopup.getContent().repaint();
-      if (getSelectedList().getModel().getSize() > selectedIndex) {
-        getSelectedList().setSelectedIndex(selectedIndex);
-        getSelectedList().ensureIndexIsVisible(selectedIndex);
+      int size = files.getModel().getSize();
+      if (size > 0) {
+        int index = Math.min(Math.max(selectedIndex, 0), size - 1);
+        files.setSelectedIndex(index);
+        files.ensureIndexIsVisible(index);
       }
-    }
-
-    private static void removeElementAt(@NotNull JList<?> jList, int index) {
-      ListUtil.removeItem(jList.getModel(), index);
-    }
-
-    private void pack() {
-      this.setSize(this.getPreferredSize());
-      final JRootPane rootPane = SwingUtilities.getRootPane(this);
-      Container container = this;
-      do {
-        container = container.getParent();
-        container.setSize(container.getPreferredSize());
+      else {
+        toolWindows.requestFocusInWindow();
       }
-      while (container != rootPane);
-      container.getParent().setSize(container.getPreferredSize());
     }
 
     private boolean isFilesSelected() {
@@ -985,9 +950,29 @@ public final class Switcher extends BaseSwitcherAction {
 
       @Nullable
       @Override
-      protected Object findElement(@NotNull String s) {
-        final List<SpeedSearchObjectWithWeight> elements = SpeedSearchObjectWithWeight.findElement(s, this);
-        return elements.isEmpty() ? null : elements.get(0).node;
+      protected Object findElement(@NotNull String pattern) {
+        boolean toolWindowsFocused = myComponent.toolWindows.hasFocus();
+        JList<?> firstList = !toolWindowsFocused ? myComponent.files : myComponent.toolWindows;
+        JList<?> secondList = toolWindowsFocused ? myComponent.files : myComponent.toolWindows;
+        Object element = findElementIn(firstList, pattern);
+        return element != null ? element : findElementIn(secondList, pattern);
+      }
+
+      private <T> @Nullable T findElementIn(@NotNull JList<T> list, @NotNull String pattern) {
+        T foundElement = null;
+        int foundDegree = 0;
+        ListModel<T> model = list.getModel();
+        for (int i = 0; i < model.getSize(); i++) {
+          T element = model.getElementAt(i);
+          String text = getElementText(element);
+          if (text == null) continue;
+          int degree = getComparator().matchingDegree(pattern, text);
+          if (foundElement == null || foundDegree < degree) {
+            foundElement = element;
+            foundDegree = degree;
+          }
+        }
+        return foundElement;
       }
 
       @Override
